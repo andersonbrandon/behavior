@@ -20,9 +20,13 @@ module Behavior
       HashWithIndifferentAccess.new(YAML.load_file(Behavior::Settings.config_file))
     end
     
+    def config_name
+      Behavior::Settings.config_name
+    end
+    
     def [](key)
       out = begin
-        BehaviorConfig.find_by_key(key.to_s).value
+        BehaviorConfig.find_by_key_and_config_name(key.to_s, config_name).value
       rescue NoMethodError
         meta[key][:default]
       end
@@ -42,7 +46,7 @@ module Behavior
     
     def update(attrs = {})
       attrs.each do |key,value|
-        result = BehaviorConfig.find_or_create_by_key(key.to_s)
+        result = BehaviorConfig.find_or_create_by_key_and_config_name(key.to_s, config_name)
         result.update_attribute(:value, value) if result
       end
     end
@@ -50,8 +54,14 @@ module Behavior
   
   class Settings
     class << self
+      def config_name
+        lambda { params[:config] || 'default' }.call
+      end
+      
       def config_file
-        @config_file ||= "#{Rails.root}/config/behavior.yml"
+        filename = "#{Rails.root}/config/behaviors/#{config_name}.yml"
+        File.exists?(filename) ? filename : "#{Rails.root}/config/behaviors/default.yml"
+        # @config_file ||= "#{Rails.root}/config/behaviors/default.yml"
       end
       
       def config_file=(file)
